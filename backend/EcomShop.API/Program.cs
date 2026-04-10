@@ -9,13 +9,16 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ─── Local overrides (not committed to git) ───────────────────────────────
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // ─── Database ────────────────────────────────────────────────────────────────
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
-        mysqlOptions => mysqlOptions.EnableRetryOnFailure(3)));
+    options.UseNpgsql(connectionString,
+        npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(3)));
 
 // ─── Authentication & Authorization ──────────────────────────────────────────
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -110,7 +113,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHttpContextAccessor();
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
-builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 

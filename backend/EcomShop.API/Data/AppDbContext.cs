@@ -1,5 +1,6 @@
 using EcomShop.API.Models;
 using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 namespace EcomShop.API.Data;
 

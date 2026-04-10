@@ -3,7 +3,7 @@ frontend/.env.local
 frontend/.env*.local
 
 # Backend sensitive config
-backend/EcomShop.API/appsettings.Development.json
+backend/EcomShop.API/appsettings.Local.json
 
 # Build outputs
 frontend/.next/

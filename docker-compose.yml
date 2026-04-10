@@ -1,19 +1,18 @@
 version: '3.8'
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: ecomshop_mysql
+  postgres:
+    image: postgres:16-alpine
+    container_name: ecomshop_postgres
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root@1234
-      MYSQL_DATABASE: ecomshop_db
-      MYSQL_USER: ecomshop
-      MYSQL_PASSWORD: ecomshop@1234
+      POSTGRES_DB: ecomshop_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres@1234
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - ecomshop_network
 
@@ -25,11 +24,11 @@ services:
     restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=ecomshop_db;User=ecomshop;Password=ecomshop@1234;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=ecomshop_db;Username=postgres;Password=postgres@1234;
     ports:
       - "5000:80"
     depends_on:
-      - mysql
+      - postgres
     networks:
       - ecomshop_network
 
@@ -49,7 +48,7 @@ services:
       - ecomshop_network
 
 volumes:
-  mysql_data:
+  postgres_data:
 
 networks:
   ecomshop_network:

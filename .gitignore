@@ -1,0 +1,16 @@
+# Frontend env files
+frontend/.env.local
+frontend/.env*.local
+
+# Backend sensitive config
+backend/EcomShop.API/appsettings.Development.json
+
+# Build outputs
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+backend/EcomShop.API/bin/
+backend/EcomShop.API/obj/
+
+# Upload folders
+backend/EcomShop.API/wwwroot/uploads/

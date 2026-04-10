@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ecomshop_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root@1234
+      MYSQL_DATABASE: ecomshop_db
+      MYSQL_USER: ecomshop
+      MYSQL_PASSWORD: ecomshop@1234
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ecomshop_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecomshop_api
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=ecomshop_db;User=ecomshop;Password=ecomshop@1234;
+    ports:
+      - "5000:80"
+    depends_on:
+      - mysql
+    networks:
+      - ecomshop_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecomshop_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - ecomshop_network
+
+volumes:
+  mysql_data:
+
+networks:
+  ecomshop_network:
+    driver: bridge

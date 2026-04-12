@@ -194,6 +194,15 @@ export const usersApi = {
   toggleStatus: (id: number) => apiClient.put(`/users/${id}/toggle-active`),
 };
 
+// ─── Coupons API ─────────────────────────────────────────────────────────────
+export const couponsApi = {
+  getAll: (params?: any) => apiClient.get('/coupons', { params }),
+  getById: (id: number) => apiClient.get(`/coupons/${id}`),
+  create: (data: any) => apiClient.post('/coupons', data),
+  update: (id: number, data: any) => apiClient.put(`/coupons/${id}`, data),
+  delete: (id: number) => apiClient.delete(`/coupons/${id}`),
+};
+
 // ─── Banners API ──────────────────────────────────────────────────────────────
 export const bannersApi = {
   getAll: () => apiClient.get('/banners'),

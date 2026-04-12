@@ -48,7 +48,8 @@ export default function CartPage() {
     if (!couponCode.trim()) return;
     setCouponLoading(true);
     try {
-      const res = await cartApi.applyCoupon(couponCode, cart?.subtotal || 0);
+      const orderAmount = cart?.subTotal ?? cart?.subtotal ?? (cart?.items ?? []).reduce((s: number, it: any) => s + ((it.totalPrice ?? it.total_price ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) * (it.quantity ?? 0)), 0);
+      const res = await cartApi.applyCoupon(couponCode, orderAmount);
       setAppliedCoupon(res.data.data);
       toast.success(`Đã áp dụng mã giảm giá! Tiết kiệm ${formatCurrency(res.data.data.discountAmount)}`);
     } catch (error: any) {
@@ -88,7 +89,7 @@ export default function CartPage() {
   }
 
   const items = cart?.items || [];
-  const subtotal = cart?.subtotal || 0;
+  const subtotal: number = cart?.subTotal ?? cart?.subtotal ?? items.reduce((s: number, it: any) => s + ((it.totalPrice ?? it.total_price ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) * (it.quantity ?? 0)), 0);
   const discount = appliedCoupon?.discountAmount || 0;
   const shipping = subtotal >= 500000 ? 0 : 30000;
   const total = subtotal - discount + shipping;
@@ -115,20 +116,20 @@ export default function CartPage() {
         <div className="lg:col-span-2 space-y-3">
           {items.map((item: any) => (
             <div key={item.id} className="card p-4 flex gap-4">
-              <Link href={`/products/${item.product.slug}`} className="flex-shrink-0">
+              <Link href={`/products/${item.productSlug}`} className="flex-shrink-0">
                 <img
-                  src={item.product.primaryImage || '/placeholder.jpg'}
-                  alt={item.product.name}
+                  src={item.productImage || '/placeholder.jpg'}
+                  alt={item.productName}
                   className="w-24 h-24 object-cover rounded-lg bg-gray-100"
                 />
               </Link>
               <div className="flex-1 min-w-0">
-                <Link href={`/products/${item.product.slug}`} className="hover:text-primary-600">
-                  <h3 className="font-medium text-gray-800 text-sm line-clamp-2">{item.product.name}</h3>
+                <Link href={`/products/${item.productSlug}`} className="hover:text-primary-600">
+                  <h3 className="font-medium text-gray-800 text-sm line-clamp-2">{item.productName}</h3>
                 </Link>
-                {item.variant && (
+                {(item.size || item.color) && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Size: {item.variant.size} · Màu: {item.variant.color}
+                    {item.size && <>Size: {item.size}</>}{item.size && item.color && ' · '}{item.color && <>Màu: {item.color}</>}
                   </p>
                 )}
                 <div className="flex items-center justify-between mt-3">
@@ -155,7 +156,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-primary-600">
-                      {formatCurrency(item.price * item.quantity)}
+                      {formatCurrency(item.unitPrice * item.quantity)}
                     </span>
                     <button
                       onClick={() => removeMutation.mutate(item.id)}

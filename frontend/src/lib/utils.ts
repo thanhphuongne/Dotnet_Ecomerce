@@ -63,7 +63,7 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BankTransfer: 'Chuyển khoản ngân hàng',
   Momo: 'Ví MoMo',
   VNPay: 'VNPay',
-  CreditCard: 'Thẻ tín dụng',
+  CreditCard: 'Thanh toán qua PayOS',
 };
 
 export const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];

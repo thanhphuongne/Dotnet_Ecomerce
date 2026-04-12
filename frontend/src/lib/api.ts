@@ -3,6 +3,9 @@ import Cookies from 'js-cookie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+// Prevent multiple simultaneous redirects to the login page
+let isRedirectingToLogin = false;
+
 export const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -53,9 +56,20 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('user');
 
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          // Only perform a single redirect to avoid multiple navigation events
+          // when several requests fail at the same time.
+          if (!isRedirectingToLogin && window.location.pathname !== '/login') {
+            isRedirectingToLogin = true;
+            window.location.href = '/login';
+          }
         }
       }
+    }
+
+    // Log network-level errors for easier local debugging (ECONNREFUSED, DNS, CORS proxy issues)
+    if (!error.response) {
+      // eslint-disable-next-line no-console
+      console.error('API network error:', error.message, (error as any).cause || (error as any).code || error);
     }
 
     return Promise.reject(error);
@@ -146,6 +160,11 @@ export const ordersApi = {
   validateCoupon: (code: string, orderAmount: number) =>
     apiClient.post('/orders/validate-coupon', { code, orderAmount }),
   getDashboardStats: () => apiClient.get('/orders/dashboard-stats'),
+};
+
+// ─── Payments API ───────────────────────────────────────────────────────────
+export const paymentsApi = {
+  createLink: (data: any) => apiClient.post('/payments/create-link', data),
 };
 
 // ─── Reviews API ──────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { cartApi, ordersApi, addressesApi } from '@/lib/api';
+import { cartApi, ordersApi, addressesApi, paymentsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { formatCurrency } from '@/lib/utils';
 import { MapPin, CreditCard, Truck, Check, Plus } from 'lucide-react';
@@ -11,9 +11,7 @@ import toast from 'react-hot-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const PAYMENT_METHODS = [
-  { value: 'CashOnDelivery', label: 'Thanh toán khi nhận hàng (COD)', icon: Truck },
-  { value: 'BankTransfer', label: 'Chuyển khoản ngân hàng', icon: CreditCard },
-  { value: 'MoMo', label: 'Ví MoMo', icon: CreditCard },
+  { value: 'CreditCard', label: 'Thanh toán qua PayOS', icon: CreditCard },
 ];
 
 export default function CheckoutPage() {
@@ -23,8 +21,15 @@ export default function CheckoutPage() {
   const { isAuthenticated, user } = useAuthStore();
 
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('CashOnDelivery');
+  const [paymentMethod, setPaymentMethod] = useState('CreditCard');
   const [note, setNote] = useState('');
+  const paymentMethodMap: Record<string, number> = {
+    COD: 0,
+    BankTransfer: 1,
+    Momo: 2,
+    VNPay: 3,
+    CreditCard: 4,
+  };
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [newAddress, setNewAddress] = useState({
     fullName: user?.fullName || '',
@@ -64,9 +69,24 @@ export default function CheckoutPage() {
 
   const createOrderMutation = useMutation({
     mutationFn: (data: any) => ordersApi.create(data),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
+      const orderId = res.data.data.id;
+      // If selected payment method is online, create payment link and redirect
+      if (paymentMethod !== 'COD') {
+        try {
+          const { data } = await paymentsApi.createLink({ orderId });
+          const checkoutUrl = data?.data?.checkoutUrl || data?.data?.checkout_url || data?.checkoutUrl || data?.checkout_url;
+          if (checkoutUrl) {
+            window.location.href = checkoutUrl;
+            return;
+          }
+        } catch (err: any) {
+          toast.error(err?.response?.data?.message || 'Không tạo được link thanh toán');
+        }
+      }
+
       toast.success('Đặt hàng thành công!');
-      router.push(`/orders/${res.data.data.id}?success=1`);
+      router.push(`/orders/${orderId}?success=1`);
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Đặt hàng thất bại');
@@ -74,7 +94,8 @@ export default function CheckoutPage() {
   });
 
   const items = cart?.items || [];
-  const subtotal = cart?.subtotal || 0;
+  const subtotal: number =
+    cart?.subTotal ?? cart?.subtotal ?? items.reduce((s: number, it: any) => s + ((it.totalPrice ?? it.total_price ?? it.unitPrice ?? it.unit_price ?? it.price ?? 0) * (it.quantity ?? 0)), 0);
   const shipping = subtotal >= 500000 ? 0 : 30000;
   const total = subtotal + shipping;
 
@@ -85,21 +106,32 @@ export default function CheckoutPage() {
       toast.error('Vui lòng chọn địa chỉ giao hàng');
       return;
     }
-    if (items.length === 0) {
-      toast.error('Giỏ hàng trống');
+    // Accept items from either shape: { product: { id } } or { productId }
+    const validItems = items.filter((it: any) => {
+      if (!it) return false;
+      const productId = it?.product?.id ?? it?.productId ?? it?.product_id;
+      const qty = it?.quantity ?? it?.qty ?? 0;
+      return !!productId && qty > 0;
+    });
+
+    if (validItems.length === 0) {
+      toast.error('Giỏ hàng trống hoặc sản phẩm không còn tồn tại');
       return;
+    }
+
+    if (validItems.length < items.length) {
+      toast('Một số sản phẩm đã bị bỏ qua vì không còn tồn tại');
     }
 
     createOrderMutation.mutate({
       addressId: selectedAddressId,
-      paymentMethod,
+      paymentMethod: paymentMethodMap[paymentMethod as keyof typeof paymentMethodMap] ?? 4,
       couponCode: couponCode || undefined,
       note,
-      items: items.map((item: any) => ({
-        productId: item.product.id,
-        variantId: item.variant?.id,
-        quantity: item.quantity,
-        price: item.price,
+      items: validItems.map((item: any) => ({
+        productId: item?.product?.id ?? item?.productId ?? item?.product_id,
+        variantId: item?.variant?.id ?? item?.variantId ?? null,
+        quantity: item?.quantity ?? item?.qty ?? 1,
       })),
     });
   };
@@ -285,27 +317,34 @@ export default function CheckoutPage() {
           <div className="card p-4">
             <h3 className="font-semibold text-gray-800 mb-4">Đơn hàng ({items.length} sản phẩm)</h3>
             <div className="space-y-3 mb-4">
-              {items.map((item: any) => (
-                <div key={item.id} className="flex gap-3">
-                  <div className="relative">
-                    <img
-                      src={item.product.primaryImage || '/placeholder.jpg'}
-                      alt={item.product.name}
-                      className="w-14 h-14 object-cover rounded-lg bg-gray-100"
-                    />
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-gray-700 text-white text-xs rounded-full flex items-center justify-center">
-                      {item.quantity}
-                    </span>
+              {items.map((item: any) => {
+                const product = item?.product ?? null;
+                const imgSrc = product?.primaryImage || product?.images?.[0] || '/placeholder.jpg';
+                const name = product?.name || 'Sản phẩm đã bị xóa';
+                const price = item?.price || 0;
+
+                return (
+                  <div key={item.id} className="flex gap-3">
+                    <div className="relative">
+                      <img
+                        src={imgSrc}
+                        alt={product?.name || 'Sản phẩm'}
+                        className="w-14 h-14 object-cover rounded-lg bg-gray-100"
+                      />
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-gray-700 text-white text-xs rounded-full flex items-center justify-center">
+                        {item.quantity}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-700 line-clamp-1">{name}</p>
+                      {item.variant && (
+                        <p className="text-xs text-gray-400">{item.variant.size} / {item.variant.color}</p>
+                      )}
+                      <p className="text-sm font-semibold text-primary-600">{formatCurrency(price * item.quantity)}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 line-clamp-1">{item.product.name}</p>
-                    {item.variant && (
-                      <p className="text-xs text-gray-400">{item.variant.size} / {item.variant.color}</p>
-                    )}
-                    <p className="text-sm font-semibold text-primary-600">{formatCurrency(item.price * item.quantity)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">

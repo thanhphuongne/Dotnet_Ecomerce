@@ -56,10 +56,10 @@ public class OrdersController : ControllerBase
 
     // Customer: Create order
     [HttpPost]
-    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto dto)
+    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto orderDto)
     {
         var userId = GetCurrentUserId();
-        var order = await _orderService.CreateOrderAsync(userId, dto);
+        var order = await _orderService.CreateOrderAsync(userId, orderDto);
         return CreatedAtAction(nameof(GetMyOrderDetail), new { id = order.Id },
             new { success = true, data = order, message = "Đặt hàng thành công" });
     }
